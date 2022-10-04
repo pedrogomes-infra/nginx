@@ -1,0 +1,80 @@
+service: ${self:custom.product}-${self:custom.subcomponent}
+
+frameworkVersion: '>=3.0.0 <4.0.0'
+
+plugins:
+  - serverless-plugin-git-variables
+  - '@walery/serverless-plugin-stencil'
+
+provider:
+  name: aws
+  region: us-east-1  # IAM user are not bounded to region, thus region is hardcoded and must not be change
+  stage: global  # this stack covers IAM permission for all envs
+  profile: ${opt:aws-profile, 'sandbox'}
+  deploymentBucket:
+    name: ${stencil(product-bucket):name}
+  deploymentPrefix: ${stencil(product-bucket):deploymentPrefix}
+  stackTags:
+    Env: ${self:provider.stage}
+
+custom:
+  product: nginx
+  subcomponent: gha-access
+
+resources:
+  - ${stencil(2iq):description}
+
+  - Resources:
+      DeployDockerImagePolicy:
+        Type: AWS::IAM::ManagedPolicy
+        Properties:
+          ManagedPolicyName: !Sub ${AWS::StackName}-deploy-docker-image
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: DockerLogin
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Sid: EcrRepositoryManagement
+                Effect: Allow
+                Action:
+                  - ecr:DescribeRepositories
+                  - ecr:CreateRepository
+                  - ecr:PutLifecyclePolicy
+                Resource:
+                  - !Sub arn:aws:ecr:*:${AWS::AccountId}:repository/${self:custom.product}
+              - Sid: EcrImageManagement
+                Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                Resource:
+                  - !Sub arn:aws:ecr:*:${AWS::AccountId}:repository/${self:custom.product}
+
+      GitHubActionRole:
+        Type: AWS::IAM::Role
+        Properties:
+          RoleName: ${self:service}
+          AssumeRolePolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Federated: ${cf(us-east-1):oidc-github-global.ActionsOidcProvider}
+                Action:
+                  - sts:AssumeRoleWithWebIdentity
+                Condition:
+                  ForAllValues:StringLike:
+                    token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                    token.actions.githubusercontent.com:sub: repo:${stencil(account):companyName}/${self:custom.product}:*
+          ManagedPolicyArns:
+            - !Ref DeployDockerImagePolicy

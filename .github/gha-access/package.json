@@ -1,0 +1,17 @@
+{
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {
+    "@2iq/stencil-2iq": "1.0.1",
+    "@walery/serverless-plugin-stencil": "0.0.4",
+    "serverless": "3.19.0",
+    "serverless-plugin-git-variables": "5.2.0"
+  },
+  "dependencies": {},
+  "scripts": {
+    "deploy": "npm install && sls deploy --verbose",
+    "remove": "npm install && sls remove --verbose",
+    "stack-diff": "../../../infrastructure-scripts/show-stack-diff/show-stack-diff --stack-name ssdeu-backend-gha-access --stack-env global --aws-region us-east-1",
+    "stack-drift": "../../../infrastructure-scripts/show-stack-drift/show-stack-drift --stack-name ssdeu-backend-gha-access --stack-env global --aws-region us-east-1"
+  }
+}
