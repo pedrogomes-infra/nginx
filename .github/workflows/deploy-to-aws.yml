@@ -6,6 +6,9 @@ on:
       - prod
       - staging
 
+env:
+  app: nginx
+
 jobs:
   build-and-upload:
     runs-on: ubuntu-20.04
@@ -22,15 +25,13 @@ jobs:
           script: |
             const [, , refName] = context.ref.split('/');
             core.setOutput('env', refName);
-            core.setOutput('repoName', context.payload.repository.name);
-            core.setOutput('awsAccountName', 'master');  // TODO Remove once ib2 did not depend on profile
             core.setOutput('awsAccountId', ${{secrets.AWS_ACCOUNT_ID_2IQ_MASTER}});
             core.setOutput('awsRegion', 'eu-central-1');  // TODO hardcoded
 
       - name: Set AWS credentials to run build
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: arn:aws:iam::${{steps.deploy-context.outputs.awsAccountId}}:role/${{steps.deploy-context.outputs.repoName}}-gha-access
+          role-to-assume: arn:aws:iam::${{steps.deploy-context.outputs.awsAccountId}}:role/${{env.app}}-gha-access
           aws-region: ${{steps.deploy-context.outputs.awsRegion}}
 
       - name: Login to ECR
@@ -40,7 +41,7 @@ jobs:
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: ${{steps.login-ecr.outputs.registry}}
-          ECR_REPOSITORY: ${{github.event.repository.name}}
+          ECR_REPOSITORY: ${{env.app}}
           IMAGE_TAG: ${{steps.deploy-context.outputs.env}}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .

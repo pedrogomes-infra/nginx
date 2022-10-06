@@ -11,7 +11,7 @@
   "scripts": {
     "deploy": "npm install && sls deploy --verbose",
     "remove": "npm install && sls remove --verbose",
-    "stack-diff": "../../../infrastructure-scripts/show-stack-diff/show-stack-diff --stack-name ssdeu-backend-gha-access --stack-env global --aws-region us-east-1",
-    "stack-drift": "../../../infrastructure-scripts/show-stack-drift/show-stack-drift --stack-name ssdeu-backend-gha-access --stack-env global --aws-region us-east-1"
+    "stack-diff": "../../../infrastructure-scripts/show-stack-diff/show-stack-diff --stack-name nginx-gha-access --stack-env global --aws-region us-east-1",
+    "stack-drift": "../../../infrastructure-scripts/show-stack-drift/show-stack-drift --stack-name nginx-gha-access --stack-env global --aws-region us-east-1"
   }
 }
