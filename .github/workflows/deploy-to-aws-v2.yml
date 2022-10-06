@@ -1,0 +1,60 @@
+name: Push NGINX to ECR
+
+on:
+  push:
+    branches:
+      - prod
+      - staging
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-20.04
+
+    permissions: # necessary for AWS OIDC
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Create deployment context
+        uses: actions/github-script@v6
+        id: deploy-context
+        with:
+          script: |
+            const [, , refName] = context.ref.split('/');
+            core.setOutput('env', refName);
+            core.setOutput('awsAccountId', ${{secrets.AWS_ACCOUNT_ID_2IQ_MASTER}});
+            core.setOutput('awsRegion', 'eu-central-1');  // TODO hardcoded
+
+      - name: Parse image name and version from Dockerfile
+        id: parse-image
+        run: |
+          label=$(grep -oP '(?<=LABEL).+$' Dockerfile)
+          version=$(echo $label | grep -oP '(?<=version=)"\K.+?(?=")')
+          name=$(echo $label | grep -oP '(?<=name=)"\K.+?(?=")')
+          
+          echo "::set-output name=version::${version}"
+          echo "::set-output name=name::${name}"
+
+      - name: Set AWS credentials to run build
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::${{steps.deploy-context.outputs.awsAccountId}}:role/${{steps.parse-image.outputs.name}}-gha-access
+          aws-region: ${{steps.deploy-context.outputs.awsRegion}}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{steps.login-ecr.outputs.registry}}
+          ECR_REPOSITORY: ${{steps.parse-image.outputs.name}}
+          IMAGE_TAG: ${{steps.parse-image.outputs.version}}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Logout of ECR
+        if: always()
+        run: docker logout ${{steps.login-ecr.outputs.registry}}
+
